@@ -119,7 +119,7 @@ export const AuthAdminMessage = {
     Overriden: msg("Overridden"),
     TypeRules: msg("Type rules"),
     PermissionRules: msg("Permission rules"),
-    DownloadAuthRules: msg("Download AuthRules"),
+    DownloadAuthRules: msg("Download AuthRules.xml"),
     Allowed: msg("Allowed"),
     Allow: msg("Allow"),
     Deny: msg("Deny"),

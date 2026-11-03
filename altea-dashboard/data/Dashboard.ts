@@ -98,6 +98,7 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
     @validate<DashboardEntity_Part>(p => !p.title && p.content?.requiresTitle()
         ? DashboardMessage.DashboardDN_TitleMustBeSpecifiedFor0.niceToString(p.content.toString()) : null)
     @stringLengthValidator({ min: 3, max: 100 })
+    @translatable
     title: string | null;
 
     hideTitle: boolean = false;
@@ -107,6 +108,7 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
     // multi-line text box; the stored value is still rendered as HTML by DashboardTooltipIcon.
     @column({ size: MAX_SIZE })
     @stringLengthValidator({ multiLine: true })
+    @translatable
     tooltip: string | null;
 
     @stringLengthValidator({ min: 3, max: 100 })

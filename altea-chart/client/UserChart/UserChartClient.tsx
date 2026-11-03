@@ -59,7 +59,12 @@ export namespace UserChartClient {
 
         // The UserChart editor (never creable directly — created from the chart window in Signum).
         cb.configure(UserChartEntity)
-            .withView(() => import("./UserChart"));
+            // Created from the chart window, never with a "Create" button (Signum's isCreable: "Never").
+            .withView(() => import("./UserChart"), { isCreable: "Never" })
+            // Signum's UserChartLogic WithQuery projection.
+            .withQuerySettings(token => ({
+                defaultColumns: [token(a => a.id), token(a => a.displayName), token(a => a.query), token(a => a.entityType), token(a => a.chartScript), token(a => a.owner)],
+            }));
 
         // Global quick-link: on any entity, offer the user charts scoped to that entity type — each opens the
         // saved chart filtered by the current entity (Signum's registerGlobalQuickLink). Server-gated by

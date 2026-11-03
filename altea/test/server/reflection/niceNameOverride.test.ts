@@ -113,7 +113,7 @@ describe("the default nice name of a part row class", () => {
     test("Owner_Member reads as Owner ⇒ Member, suffixes stripped per segment", () => {
         assert.equal(Localization.Internal.niceNameFromTypeName("DashboardEntity_Part"), "Dashboard ⇒ Part");
         assert.equal(Localization.Internal.niceNameFromTypeName("DashboardEntity_TokenEquivalenceGroup_Query"),
-            "Dashboard ⇒ Token Equivalence Group ⇒ Query");
-        assert.equal(Localization.Internal.niceNameFromTypeName("GrammyAwardEntity"), "Grammy Award", "no underscore: unchanged");
+            "Dashboard ⇒ Token equivalence group ⇒ Query");
+        assert.equal(Localization.Internal.niceNameFromTypeName("GrammyAwardEntity"), "Grammy award", "no underscore: Signum's SpacePascal");
     });
 });

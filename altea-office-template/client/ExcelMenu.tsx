@@ -98,7 +98,7 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
         <span>
             <FontAwesomeIcon aria-hidden={true} icon="file-excel" />
             {p.searchControl.props.largeToolbarButtons === true
-                ? <span className="d-none d-sm-inline">{" " + ExcelMessage.ExportToExcel.niceToString()}</span>
+                ? <span className="d-none d-sm-inline">{" " + ExcelMessage.ExcelReport.niceToString()}</span>
                 : undefined}
         </span>
     );
@@ -106,7 +106,7 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
     // With nothing to choose between, the menu IS the export button.
     if (p.plainExcel && !p.importFromExcel && !p.excelReport)
         return (
-            <button className="sf-query-button sf-search btn btn-tertiary" title={ExcelMessage.ExportToExcel.niceToString()}
+            <button className="sf-query-button sf-search btn btn-tertiary" title={ExcelMessage.ExcelReport.niceToString()}
                 onClick={() => void handlePlainExcel()}>
                 {label}
             </button>
@@ -119,7 +119,7 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
         && getOperationInfos(ExcelReportEntity).some(oi => oi.key === ExcelReportOperation.Save.key);
 
     return (
-        <Dropdown show={isOpen} onToggle={handleToggle} title={ExcelMessage.ExportToExcel.niceToString()}>
+        <Dropdown show={isOpen} onToggle={handleToggle} title={ExcelMessage.ExcelReport.niceToString()}>
             <Dropdown.Toggle id={toggleId} variant="tertiary">
                 {label}
             </Dropdown.Toggle>
@@ -128,7 +128,7 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
                     p.plainExcel &&
                         <Dropdown.Item key="plain" onClick={() => void handlePlainExcel()}>
                             <FontAwesomeIcon aria-hidden={true} icon="file-excel" className="me-2" />
-                            {ExcelMessage.ExportToExcel.niceToString()}
+                            {ExcelMessage.ExcelReport.niceToString()}
                         </Dropdown.Item>,
                     p.importFromExcel &&
                         <Dropdown.Item key="import" onClick={() => void handleImportFromExcel()}>
@@ -198,7 +198,7 @@ export async function selectPagination(sc: SearchControlLoaded): Promise<QueryRe
         return request;
 
     const pm = await SelectorModal.chooseElement<PaginationModeKeys>([request.pagination.mode, "All"], {
-        title: ExcelMessage.ExportToExcel.niceToString(),
+        title: ExcelMessage.ExcelReport.niceToString(),
         message: ExcelMessage.WhatDoYouWantToExport.niceToString(),
         buttonDisplay: a => <span>
             {a === "All" ? SearchMessage.AllPages.niceToString() : SearchMessage.CurrentPage.niceToString()}{" "}

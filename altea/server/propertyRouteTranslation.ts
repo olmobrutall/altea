@@ -135,12 +135,12 @@ export namespace PropertyRouteTranslationLogic {
      * as help text without a round-trip. @altea/altea-translations calls it from its start.
      */
     export function installSerializerHook(): void {
-        setTranslatedFieldProvider((entity, route) => {
+        setTranslatedFieldProvider((entity, route, rowId) => {
             if (!isActivated || entity.isNew)
                 return undefined;
             if (translateableRoutes.get(route.rootType)?.has(route.propertyString()) !== true)
                 return undefined;
-            return translatedFieldFunc(entity.toLite(), route, null);
+            return translatedFieldFunc(entity.toLite(), route, null, rowId);
         });
     }
 }

@@ -438,6 +438,9 @@ const wellKnownResultTypes: Readonly<Record<string, RuntimeType>> = {
     "date.quarter": LiteralType.number,
     "dateTime.weekNumber": LiteralType.number,
     "date.weekNumber": LiteralType.number,
+    // The culture's short date (Signum's ToShortDateString) → FORMAT / to_char.
+    "dateTime.toShortDateString": LiteralType.string,
+    "date.toShortDateString": LiteralType.string,
     // Truncation / "start of" → keeps the receiver's temporal kind.
     "dateTime.yearStart": new TemporalType("dateTime"),
     "dateTime.quarterStart": new TemporalType("dateTime"),

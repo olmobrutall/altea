@@ -350,6 +350,6 @@ export function taskSetMandatory(lineBase: LineBaseController<LineBaseProps, unk
     return;
   }
 
-  if (!fieldInfo.isNullable) // ALTEA: Signum member.required ≡ !isNullable
+  if (fieldInfo.isRequired)
     state.mandatory = true;
 }

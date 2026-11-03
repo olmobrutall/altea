@@ -36,7 +36,7 @@ import { EntityLine } from "./Lines/EntityLine";
 import { EntityCombo } from "./Lines/EntityCombo";
 import { EntityStrip } from "./Lines/EntityStrip";
 import { DateTimeRange } from "./Lines/DateTimeRange";
-import type { DateValue } from "./Lines/ReactWidgetsLocalizer";
+import { type DateValue, formatDateValue, toDateFormatOptions } from "./Lines/ReactWidgetsLocalizer";
 import { FormGroup } from "./Lines/FormGroup";
 import { EntityBaseController } from "./Lines/EntityBase";
 import { LinkButton } from "./Basics/LinkButton";
@@ -140,7 +140,9 @@ export function initFormatRules(): Finder.FormatRule[] {
       formatter: () => new Finder.CellFormatter((cell: any) => {
         if (!cell) return "";
         const s = String(cell);
-        return <span className="guid try-no-wrap">{s.substring(0, 4) + "…" + s.substring(s.length - 4)}</span>;
+        // Lower case, as .NET prints a Guid (SQL Server hands a uniqueidentifier back in upper case).
+        const g = s.toLowerCase();
+        return <span className="guid try-no-wrap">{g.substring(0, 4) + "…" + g.substring(g.length - 4)}</span>;
       }, false),
     },
     // Integer: right-aligned, `column.format` applied via Intl (Signum's "Integer", minus keyword bolding).
@@ -228,10 +230,11 @@ export function initFormatRules(): Finder.FormatRule[] {
             return "";
           const s = String(cell);
           try {
+            // In the UI culture and the column's .NET format (Signum's toFormatWithFixes), not the browser's.
             if (tn == "PlainDate")
-              return <bdi className="date try-no-wrap">{Temporal.PlainDate.from(s).toLocaleString()}</bdi>;
+              return <bdi className="date try-no-wrap">{formatDateValue(Temporal.PlainDate.from(s), toDateFormatOptions(qt.format, "PlainDate"))}</bdi>;
             if (tn == "PlainDateTime")
-              return <bdi className="date try-no-wrap">{Clock.toUserInterface(Temporal.PlainDateTime.from(s)).toLocaleString()}</bdi>;
+              return <bdi className="date try-no-wrap">{formatDateValue(Clock.toUserInterface(Temporal.PlainDateTime.from(s)), toDateFormatOptions(qt.format, "PlainDateTime"))}</bdi>;
           }
           catch { return s; }
           return s;

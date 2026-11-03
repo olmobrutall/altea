@@ -18,13 +18,13 @@ import { DashboardController } from "./DashboardFilterController";
 import { DashboardTooltipIcon } from "./DashboardTooltipIcon";
 import { parseIcon, fallbackIcon, getContrastingTextColor } from "@altea/altea/client/Components/IconHelpers";
 import "../Dashboard.css";
+import { translated } from "@altea/altea/client/Translated";
 
 // Port of Signum's Signum.Dashboard/View/DashboardView.tsx — lays the parts out on the 12-column grid
 // (optionally COMBINING consecutive rows whose columns line up, so parts stack in a shared column), renders
 // each part's card chrome, and hosts the dashboard-level pinned filters.
 //
-// altea divergences: `translated(part, …)` is not ported
-// (raw stored text); a part row is a plain @part entity, so `mlistItemContext` yields row contexts directly
+// altea divergences: `translated(part, "title")` takes the field name, not a lambda; a part row is a plain @part entity, so `mlistItemContext` yields row contexts directly
 // (Signum's `c.value.element`).
 
 export default function DashboardView(p: {
@@ -273,8 +273,9 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
         );
     }
 
-    const titleText = part.title ?? (renderer.defaultTitle ? renderer.defaultTitle(content) : content.toString());
-    const tooltipHtml = part.tooltip;
+    // Signum's translated(part, p => p.title): the part's title in the current culture.
+    const titleText = translated(part, "title") ?? (renderer.defaultTitle ? renderer.defaultTitle(content) : content.toString());
+    const tooltipHtml = translated(part, "tooltip");
     const icon = parseIcon(part.iconName);
     const iconColor = part.iconColor;
 

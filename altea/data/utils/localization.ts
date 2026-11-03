@@ -1,4 +1,4 @@
-import { pluralize, detectGender, spacePascalOrUnderscores } from './naturalLanguage';
+import { pluralize, detectGender, spacePascal, spacePascalOrUnderscores } from './naturalLanguage';
 import { CultureInfo } from './cultureInfo';
 import { Metadata } from '../metadata';
 // Code-declared default-language nice names (the @niceName/@nicePluralName decorators, operation
@@ -66,8 +66,9 @@ export namespace Localization {
             return "New " + typeNiceName(typeName);
         }
 
-        // De-camelCase a raw type identifier into a display label: "GrammyAwardEntity" → "Grammy Award",
-        // "FilterOperation" → "Filter Operation". The string-only core of `typeNiceName`, shared with the
+        // De-camelCase a raw type identifier into a display label: "GrammyAwardEntity" → "Grammy award",
+        // "FilterOperation" → "Filter operation" (Signum's `CleanTypeName(type).SpacePascal()`, which keeps
+        // only the first word's capital and an abbreviation's). The string-only core of `typeNiceName`, shared with the
         // `Enum` / `Container` helpers so their type names humanise identically.
         //
         // The suffix set is Signum's `Reflector.CleanTypeName` verbatim — Entity / Embedded / Model /
@@ -88,7 +89,7 @@ export namespace Localization {
         export function niceNameFromTypeName(typeName: string): string {
             return typeName.split("_").filter(seg => seg.length > 0).map(seg => {
                 const raw = seg.replace(/(Entity|Embedded|RowModel|Model|Symbol)$/, "");
-                return raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").trim();
+                return spacePascal(raw).trim();
             }).join(" ⇒ ");
         }
 

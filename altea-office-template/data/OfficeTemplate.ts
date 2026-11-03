@@ -1,4 +1,5 @@
 import { init, setDefaultDatabaseSchema, renameSymbolContainer } from "@altea/altea/data/reflection";
+import { setDefaultTypeDescription } from "@altea/altea/data/registration";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
@@ -269,6 +270,10 @@ export function useLegacyWordNames(): void {
         CreateOfficeTemplateFromOfficeModel: "CreateWordTemplateFromWordModel",
     });
     renameSymbolContainer(OfficeTemplatePermission, "WordTemplatePermission");
+
+    // The DISPLAY names Signum's users know (searches, "Create new …"); a loaded translation still wins.
+    setDefaultTypeDescription(OfficeTemplateEntity.name, { description: "Word template", pluralDescription: "Word templates" });
+    setDefaultTypeDescription(OfficeModelEntity.name, { description: "Word model", pluralDescription: "Word models" });
 }
 
 export const OfficeTemplateMessage = {

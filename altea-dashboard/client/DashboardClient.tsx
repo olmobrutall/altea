@@ -39,6 +39,7 @@ import { DashboardController } from "./View/DashboardFilterController";
 import { parseIcon } from "@altea/altea/client/Components/IconHelpers";
 import { ToolbarClient } from "@altea/altea-toolbar/client/ToolbarClient";
 import DashboardToolbarConfig from "./DashboardToolbarConfig";
+import { translated } from "@altea/altea/client/Translated";
 
 // Port of Signum's Signum.Dashboard/DashboardClient.tsx. Owns the PART RENDERER REGISTRY (which React
 // component renders which part entity), registers the dashboard editor + the /dashboard/:id page, the
@@ -54,7 +55,6 @@ import DashboardToolbarConfig from "./DashboardToolbarConfig";
 //    queries live. Same for the Toolbar config and the Omnibox provider (those extensions are not ported).
 //  - Signum's `AppContext.clearSettingsActions.push(clearDashboardPageActions)` has no altea analogue
 //    (altea has no clearSettingsActions); `onDashboardPageActions` is simply module state.
-//  - `translated(part, …)` (PropertyRouteTranslationLogic) is not ported: the raw stored text is shown.
 
 export namespace DashboardClient {
 
@@ -91,6 +91,14 @@ export namespace DashboardClient {
         cb.configure(DashboardEntity)
             .withView(() => import("./Admin/Dashboard"))
             .withQuerySettings(token => ({
+                // Signum's DashboardLogic WithQuery projection.
+                defaultColumns: [
+                    token(d => d.id),
+                    token(d => d.displayName),
+                    token(d => d.entityType),
+                    token(d => d.owner),
+                    token(d => d.dashboardPriority),
+                ],
                 defaultOrders: [{ token: token(d => d.dashboardPriority), orderType: "Descending" }],
             }))
             // A new dashboard belongs to whoever creates it.
@@ -387,7 +395,7 @@ export function DashboardTitle(p: { dashboard: DashboardEntity }): React.JSX.Ele
     const icon = parseIcon(p.dashboard.iconName);
     const title = p.dashboard.hideDisplayName ? undefined :
         <span style={{ color: p.dashboard.titleColor ?? undefined }}>
-            {p.dashboard.displayName}
+            {translated(p.dashboard, "displayName")}
         </span>;
 
     if (icon == null)
