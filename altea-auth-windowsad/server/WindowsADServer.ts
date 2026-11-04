@@ -19,13 +19,12 @@ import { localNameOf } from "./WindowsDirectory";
 //
 // ══ THE ONE THING THAT DOES NOT PORT ═══════════════════════════════════════════════════════════════════
 // Reading the caller's Windows identity needs a completed SPNEGO / Kerberos handshake, which IIS does for
-// an ASP.NET host. Node has no SSPI: there is no supported, portable way to complete that handshake
-// in-process, and the native modules that can (node-expose-sspi) are Windows-only node-gyp builds that
-// break every non-Windows install of this package.
+// an ASP.NET host. Node has no SSPI and no portable way to complete that handshake in-process.
 //
 // So `negotiateProvider` is a SEAM, null by default: with none installed the endpoint answers a clear error
-// instead of pretending. A Windows host that wants real SSO installs one — for example a reverse proxy that
-// terminates Negotiate and forwards the resolved account, or an SSPI binding it depends on itself:
+// instead of pretending. This package ships two, each behind an optional dependency: KerberosNegotiate (a
+// Linux host with a keytab — production) and SspiNegotiate (a Windows workstation, where Windows checks the
+// token — local development). A host may also install its own, e.g. one reading a trusted proxy's header:
 //
 //     WindowsADServer.negotiateProvider = async req => {
 //         const account = await mySspi.authenticate(req);        // or read a trusted proxy header
@@ -51,6 +50,18 @@ export interface NegotiatedIdentity {
     responseToken?: string | null;
 }
 
+/**
+ * A handshake that needs another round trip (NTLM inside Negotiate: the browser's NEGOTIATE message is answered
+ * with a CHALLENGE, and only its AUTHENTICATE message names the user). The endpoint answers
+ * `401 WWW-Authenticate: Negotiate <continueToken>`, and the browser sends its next token on the same connection.
+ * A Kerberos ticket completes in one step and never yields this.
+ */
+export interface NegotiateContinue {
+    continueToken: string;
+}
+
+export type NegotiateProvider = (req: unknown) => Promise<NegotiatedIdentity | NegotiateContinue | null>;
+
 /** The base64 SPNEGO token of an `Authorization: Negotiate …` header, or null when the browser sent none. */
 export function negotiateToken(req: unknown): string | null {
     const header = (req as { headers?: Record<string, string | string[] | undefined> }).headers?.["authorization"];
@@ -69,7 +80,7 @@ interface ResLike {
 export namespace WindowsADServer {
 
     /** See the header. Null by default: this host cannot do integrated Windows authentication. */
-    export let negotiateProvider: ((req: unknown) => Promise<NegotiatedIdentity | null>) | null = null;
+    export let negotiateProvider: NegotiateProvider | null = null;
 
     /** 7 hours. */
     export let pictureMaxAgeSeconds = 7 * 60 * 60;
@@ -91,10 +102,16 @@ export namespace WindowsADServer {
                     return;
                 }
 
+                let continueToken: string | undefined;
                 const user = await loginWindowsAuthentication(req, throwErrors, identity => {
                     if (identity.responseToken)
                         res.setHeader("WWW-Authenticate", `Negotiate ${identity.responseToken}`);
-                });
+                }, token => { continueToken = token; });
+                if (continueToken != null) {
+                    res.setHeader("WWW-Authenticate", `Negotiate ${continueToken}`);
+                    res.status(401).end();
+                    return;
+                }
                 if (user == null) {
                     res.jsonTyped(null);
                     return;
@@ -126,9 +143,14 @@ export namespace WindowsADServer {
             });
     }
 
-    /** Integrated sign-in: resolve the caller's Windows identity, then find or create the local user. */
+    /**
+     * Integrated sign-in: resolve the caller's Windows identity, then find or create the local user.
+     * `onContinue` receives the token of a handshake that needs another round trip (see NegotiateContinue);
+     * the result is then null and the caller answers the 401 with it.
+     */
     export async function loginWindowsAuthentication(req: unknown, throwErrors: boolean,
-        onNegotiated?: (identity: NegotiatedIdentity) => void): Promise<UserEntity | null> {
+        onNegotiated?: (identity: NegotiatedIdentity) => void,
+        onContinue?: (continueToken: string) => void): Promise<UserEntity | null> {
         return await AuthLogic.withDisabled(async () => {
             try {
                 const authorizer = AuthLogic.authorizer;
@@ -145,7 +167,14 @@ export namespace WindowsADServer {
                 if (negotiateProvider == null)
                     return fail(throwErrors, WindowsADMessage.WindowsIntegratedAuthenticationIsNotConfiguredOnThisHost.niceToString());
 
-                const identity = await negotiateProvider(req);
+                const negotiated = await negotiateProvider(req);
+                if (negotiated != null && "continueToken" in negotiated) {
+                    if (onContinue == null)
+                        return fail(throwErrors, "The Negotiate handshake needs another round trip, which this caller cannot answer");
+                    onContinue(negotiated.continueToken);
+                    return null;
+                }
+                const identity = negotiated;
                 if (identity == null)
                     return fail(throwErrors, "The Negotiate provider did not resolve a Windows identity");
 

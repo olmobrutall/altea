@@ -34,6 +34,7 @@
     "quote-transformer": "workspace:*"
   },
   "optionalDependencies": {
-    "kerberos": "^7.0.0"
+    "kerberos": "^7.0.0",
+    "node-expose-sspi": "0.1.60"
   }
 }
