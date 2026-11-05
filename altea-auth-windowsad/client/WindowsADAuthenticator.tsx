@@ -39,9 +39,12 @@ export namespace WindowsADAuthenticator {
         LoginOptions.customLoginButtons = () => <LoginWithWindowsButton />;
     }
 
-    /** The boot attempt: never throws, so a host without Negotiate just shows the ordinary login page. */
+    /**
+     * The boot attempt: never throws, so a host without Negotiate just shows the ordinary login page. Skipped
+     * after a logout (`AuthClient.Options.disableWindowsAuthentication`), or it would sign the user right back in.
+     */
     export function loginWindowsAuthentication(): Promise<AuthClient.AuthenticatedUser | undefined> {
-        if (Options.disabled)
+        if (Options.disabled || AuthClient.Options.disableWindowsAuthentication)
             return Promise.resolve(undefined);
 
         return API.loginWindowsAuthentication(false).catch(() => undefined);

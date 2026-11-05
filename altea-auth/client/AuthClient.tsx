@@ -50,6 +50,12 @@ export namespace AuthClient {
 
     export const Options = {
         AuthHeader: "Authorization",
+        /**
+         * Set by logout: the silent Windows sign-in (altea-auth-windowsad) must not sign the user straight back
+         * in when the app reloads after a logout. In memory only, as in Signum — a full page load signs in
+         * silently again; the login page's "Login with Windows user" button always works.
+         */
+        disableWindowsAuthentication: false,
         validatePassword: undefined as ((password: string, user: UserEntity) => Promise<PasswordValidationResult | null>) | undefined,
         onLogout: (): Promise<void> => { throw new Error("AuthClient.Options.onLogout must be set (see MainPublic)"); },
         onLogin: (_back?: string): void => { throw new Error("AuthClient.Options.onLogin must be set (see MainPublic)"); },
@@ -175,6 +181,7 @@ export namespace AuthClient {
     async function logoutInternal(): Promise<void> {
         setAuthToken(undefined, undefined);
         setCurrentUser(undefined);
+        Options.disableWindowsAuthentication = true;
         await Options.onLogout();
     }
 
